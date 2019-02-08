@@ -36,6 +36,7 @@ fn main() {
         .get_matches();
 
     let efi_file_contents = std::fs::read(matches.value_of("FILE").unwrap()).unwrap();
+    let startup_file_contents = include_bytes!("startup.nsh");
 
     let img_path = {
         let mut path_builder = std::env::temp_dir();
@@ -49,6 +50,11 @@ fn main() {
     let mut run_efi = fs.root_dir().create_file("run.efi").unwrap();
     run_efi.truncate().unwrap();
     run_efi.write_all(&efi_file_contents).unwrap();
+
+    // Create startup.nsh
+    let mut startup_nsh = fs.root_dir().create_file("startup.nsh").unwrap();
+    startup_nsh.truncate().unwrap();
+    startup_nsh.write_all(startup_file_contents).unwrap();
 
     std::fs::remove_file(&img_path).unwrap();
 }
