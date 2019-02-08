@@ -1,7 +1,10 @@
 [package]
 name = "uefi-run"
+description = "Run UEFI applications"
 version = "0.0.0"
 authors = ["Richard Wiedenhöft <richard@wiedenhoeft.xyz>"]
+license = "MIT"
+repository = "https://github.com/richard-w/uefi-run"
 edition = "2018"
 
 [dependencies]
