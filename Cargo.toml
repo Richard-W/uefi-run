@@ -5,3 +5,5 @@ authors = ["Richard Wiedenhöft <richard@wiedenhoeft.xyz>"]
 edition = "2018"
 
 [dependencies]
+clap = "2.32"
+fatfs = "0.3"
