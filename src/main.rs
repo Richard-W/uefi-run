@@ -1,9 +1,12 @@
 extern crate clap;
 extern crate fatfs;
 
-use std::path::Path;
 use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
 
+/// Create a file and open it for reading and writing.
 fn open_file<P: AsRef<Path>>(path: P) -> std::fs::File {
     std::fs::OpenOptions::new()
         .read(true)
@@ -13,15 +16,28 @@ fn open_file<P: AsRef<Path>>(path: P) -> std::fs::File {
         .unwrap()
 }
 
+/// Create a FAT filesystem image.
 fn format_image<P: AsRef<Path>>(path: P) {
     let file = open_file(path);
     file.set_len(10 * 1024 * 1024).unwrap();
     fatfs::format_volume(file, fatfs::FormatVolumeOptions::new()).unwrap();
 }
 
-fn open_image<P: AsRef<Path>>(path: P) -> fatfs::FileSystem<std::fs::File> {
-    let file = open_file(path);
-    fatfs::FileSystem::new(file, fatfs::FsOptions::new()).unwrap()
+/// Create a bootable UEFI partition from an empty FAT image.
+fn create_image<P: AsRef<Path>>(img_path: P, efi_exe_path: P) {
+    format_image(&img_path);
+    let fs = fatfs::FileSystem::new(open_file(&img_path), fatfs::FsOptions::new()).unwrap();
+
+    // Create run.efi
+    let efi_exe_contents = std::fs::read(efi_exe_path).unwrap();
+    let mut run_efi = fs.root_dir().create_file("run.efi").unwrap();
+    run_efi.truncate().unwrap();
+    run_efi.write_all(&efi_exe_contents).unwrap();
+
+    // Create startup.nsh
+    let mut startup_nsh = fs.root_dir().create_file("startup.nsh").unwrap();
+    startup_nsh.truncate().unwrap();
+    startup_nsh.write_all(include_bytes!("startup.nsh")).unwrap();
 }
 
 fn main() {
@@ -35,26 +51,30 @@ fn main() {
         )
         .get_matches();
 
-    let efi_file_contents = std::fs::read(matches.value_of("FILE").unwrap()).unwrap();
-    let startup_file_contents = include_bytes!("startup.nsh");
-
     let img_path = {
-        let mut path_builder = std::env::temp_dir();
-        path_builder.push(format!("uefi-run-img.{}.fat", std::process::id()));
-        path_builder
+        let mut path_buf = std::env::temp_dir();
+        path_buf.push(format!("uefi-run-img.{}.fat", std::process::id()));
+        path_buf
     };
-    format_image(&img_path);
-    let fs = open_image(&img_path);
+    let efi_exe_path = PathBuf::from(matches.value_of("FILE").unwrap());
+    create_image(&img_path, &efi_exe_path);
 
-    // Create run.efi
-    let mut run_efi = fs.root_dir().create_file("run.efi").unwrap();
-    run_efi.truncate().unwrap();
-    run_efi.write_all(&efi_file_contents).unwrap();
+    // Run qemu and wait for it to terminate.
+    let ecode = Command::new("/usr/bin/qemu-system-x86_64")
+        .args(&[
+              "-hda".into(), format!("{}", img_path.display()),
+              "-bios".into(), "/usr/share/ovmf/OVMF.fd".into(),
+              "-net".into(), "none".into(),
+        ])
+        .spawn()
+        .expect("Failed to start qemu")
+        .wait()
+        .expect("Failed to wait on qemu")
+        ;
+    if !ecode.success() {
+        println!("qemu execution failed");
+    }
 
-    // Create startup.nsh
-    let mut startup_nsh = fs.root_dir().create_file("startup.nsh").unwrap();
-    startup_nsh.truncate().unwrap();
-    startup_nsh.write_all(startup_file_contents).unwrap();
-
+    // Delete the image file.
     std::fs::remove_file(&img_path).unwrap();
 }
