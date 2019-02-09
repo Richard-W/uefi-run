@@ -73,9 +73,9 @@ fn main() {
     // Run qemu and wait for it to terminate.
     let ecode = Command::new("/usr/bin/qemu-system-x86_64")
         .args(&[
-              "-hda".into(), format!("{}", img_path.display()),
-              "-bios".into(), format!("{}", bios_file),
-              "-net".into(), "none".into(),
+            "-drive".into(), format!("file={},index=0,media=disk,format=raw", img_path.display()),
+            "-bios".into(), format!("{}", bios_file),
+            "-net".into(), "none".into(),
         ])
         .spawn()
         .expect("Failed to start qemu")
