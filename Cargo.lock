@@ -304,7 +304,7 @@ dependencies = [
 
 [[package]]
 name = "uefi-run"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fatfs 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
