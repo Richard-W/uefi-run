@@ -15,18 +15,26 @@ fn main() {
             .required(true)
             .help("EFI executable")
         )
-        .arg(clap::Arg::with_name("bios_file")
-             .value_name("bios_file")
+        .arg(clap::Arg::with_name("bios_path")
+             .value_name("bios_path")
              .required(false)
              .help("BIOS image (default = /usr/share/ovmf/OVMF.fd)")
              .short("b")
              .long("bios")
-         )
+        )
+        .arg(clap::Arg::with_name("qemu_path")
+             .value_name("qemu_path")
+             .required(false)
+             .help("Path to qemu executable (default = /usr/bin/qemu-system-x86_64")
+             .short("q")
+             .long("qemu")
+        )
         .get_matches();
 
     // Parse options
     let efi_exe = matches.value_of("efi_exe").unwrap();
-    let bios_file = matches.value_of("bios_file").unwrap_or("/usr/share/ovmf/OVMF.fd");
+    let bios_path = matches.value_of("bios_path").unwrap_or("/usr/share/ovmf/OVMF.fd");
+    let qemu_path = matches.value_of("qemu_path").unwrap_or("/usr/bin/qemu-system-x86_64");
 
     // Create temporary image file
     let image_file = tempfile::NamedTempFile::new()
@@ -54,10 +62,10 @@ fn main() {
     }
 
     // Run qemu and wait for it to terminate.
-    let ecode = Command::new("/usr/bin/qemu-system-x86_64")
+    let ecode = Command::new(qemu_path)
         .args(&[
             "-drive".into(), format!("file={},index=0,media=disk,format=raw", image_file.path().display()),
-            "-bios".into(), format!("{}", bios_file),
+            "-bios".into(), format!("{}", bios_path),
             "-net".into(), "none".into(),
         ])
         .spawn()
