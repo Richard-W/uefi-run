@@ -45,25 +45,36 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Richard Wiedenhöft <richard@wiedenhoeft.xyz>")
         .about("Runs UEFI executables in qemu.")
-        .arg(clap::Arg::with_name("FILE")
+        .arg(clap::Arg::with_name("efi_exe")
+            .value_name("FILE")
             .required(true)
-            .help("The file that is executed")
+            .help("EFI executable")
         )
+        .arg(clap::Arg::with_name("bios_file")
+             .value_name("bios_file")
+             .required(false)
+             .help("BIOS image (default = /usr/share/ovmf/OVMF.fd)")
+             .short("b")
+             .long("bios")
+         )
         .get_matches();
+
+    // Parse options
+    let efi_exe = matches.value_of("efi_exe").unwrap();
+    let bios_file = matches.value_of("bios_file").unwrap_or("/usr/share/ovmf/OVMF.fd");
 
     let img_path = {
         let mut path_buf = std::env::temp_dir();
         path_buf.push(format!("uefi-run-img.{}.fat", std::process::id()));
         path_buf
     };
-    let efi_exe_path = PathBuf::from(matches.value_of("FILE").unwrap());
-    create_image(&img_path, &efi_exe_path);
+    create_image(&img_path, &PathBuf::from(&efi_exe));
 
     // Run qemu and wait for it to terminate.
     let ecode = Command::new("/usr/bin/qemu-system-x86_64")
         .args(&[
               "-hda".into(), format!("{}", img_path.display()),
-              "-bios".into(), "/usr/share/ovmf/OVMF.fd".into(),
+              "-bios".into(), format!("{}", bios_file),
               "-net".into(), "none".into(),
         ])
         .spawn()
