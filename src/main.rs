@@ -29,18 +29,26 @@ fn main() {
              .short("q")
              .long("qemu")
         )
+        .arg(clap::Arg::with_name("size")
+             .value_name("size")
+             .required(false)
+             .help("Size of the image in MiB (default = 10)")
+             .short("s")
+             .long("size")
+        )
         .get_matches();
 
     // Parse options
     let efi_exe = matches.value_of("efi_exe").unwrap();
     let bios_path = matches.value_of("bios_path").unwrap_or("/usr/share/ovmf/OVMF.fd");
     let qemu_path = matches.value_of("qemu_path").unwrap_or("/usr/bin/qemu-system-x86_64");
+    let size: u64 = matches.value_of("size").map(|v| v.parse().expect("Failed to parse --size argument")).unwrap_or(10);
 
     // Create temporary image file
     let image_file = tempfile::NamedTempFile::new()
         .expect("Temporary image creation failed");
-    // Truncate image to 10MiB
-    image_file.as_file().set_len(10 * 0x10_0000)
+    // Truncate image to `size` MiB
+    image_file.as_file().set_len(size * 0x10_0000)
         .expect("Truncating image file failed");
     // Format file as FAT
     fatfs::format_volume(&image_file, fatfs::FormatVolumeOptions::new())
