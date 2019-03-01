@@ -10,6 +10,8 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Richard Wiedenhöft <richard@wiedenhoeft.xyz>")
         .about("Runs UEFI executables in qemu.")
+        .setting(clap::AppSettings::TrailingVarArg)
+        .setting(clap::AppSettings::DontDelimitTrailingValues)
         .arg(clap::Arg::with_name("efi_exe")
             .value_name("FILE")
             .required(true)
@@ -36,6 +38,12 @@ fn main() {
              .short("s")
              .long("size")
         )
+        .arg(clap::Arg::with_name("qemu_args")
+             .value_name("qemu_args")
+             .required(false)
+             .help("Additional arguments for qemu")
+             .multiple(true)
+        )
         .get_matches();
 
     // Parse options
@@ -43,6 +51,7 @@ fn main() {
     let bios_path = matches.value_of("bios_path").unwrap_or("/usr/share/ovmf/OVMF.fd");
     let qemu_path = matches.value_of("qemu_path").unwrap_or("/usr/bin/qemu-system-x86_64");
     let size: u64 = matches.value_of("size").map(|v| v.parse().expect("Failed to parse --size argument")).unwrap_or(10);
+    let user_qemu_args = matches.values_of("qemu_args").unwrap_or(clap::Values::default());
 
     // Create temporary image file
     let image_file = tempfile::NamedTempFile::new()
@@ -69,13 +78,16 @@ fn main() {
         startup_nsh.write_all(include_bytes!("startup.nsh")).unwrap();
     }
 
+    let mut qemu_args = vec![
+        "-drive".into(), format!("file={},index=0,media=disk,format=raw", image_file.path().display()),
+        "-bios".into(), format!("{}", bios_path),
+        "-net".into(), "none".into(),
+    ];
+    qemu_args.extend(user_qemu_args.map(|x| x.into()));
+
     // Run qemu and wait for it to terminate.
     let ecode = Command::new(qemu_path)
-        .args(&[
-            "-drive".into(), format!("file={},index=0,media=disk,format=raw", image_file.path().display()),
-            "-bios".into(), format!("{}", bios_path),
-            "-net".into(), "none".into(),
-        ])
+        .args(qemu_args)
         .spawn()
         .expect("Failed to start qemu")
         .wait()
