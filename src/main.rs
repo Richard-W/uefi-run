@@ -3,6 +3,7 @@ extern crate fatfs;
 extern crate tempfile;
 
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
@@ -53,18 +54,36 @@ fn main() {
     let size: u64 = matches.value_of("size").map(|v| v.parse().expect("Failed to parse --size argument")).unwrap_or(10);
     let user_qemu_args = matches.values_of("qemu_args").unwrap_or(clap::Values::default());
 
-    // Create temporary image file
-    let image_file = tempfile::NamedTempFile::new()
-        .expect("Temporary image creation failed");
-    // Truncate image to `size` MiB
-    image_file.as_file().set_len(size * 0x10_0000)
-        .expect("Truncating image file failed");
-    // Format file as FAT
-    fatfs::format_volume(&image_file, fatfs::FormatVolumeOptions::new())
-        .expect("Formatting image file failed");
+    // Create temporary dir for the image file.
+    let temp_dir = tempfile::tempdir()
+        .expect("Unable to create temporary directory");
+    let temp_dir_path = PathBuf::from(temp_dir.path());
+
+    // Path to the image file
+    let image_file_path = {
+        let mut path_buf = temp_dir_path.clone();
+        path_buf.push("image.fat");
+        path_buf
+    };
 
     {
-        let fs = fatfs::FileSystem::new(&image_file, fatfs::FsOptions::new()).unwrap();
+        // Create image file
+        let image_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&image_file_path)
+            .expect("Image file creation failed");
+        // Truncate image to `size` MiB
+        image_file.set_len(size * 0x10_0000)
+            .expect("Truncating image file failed");
+        // Format file as FAT
+        fatfs::format_volume(&image_file, fatfs::FormatVolumeOptions::new())
+            .expect("Formatting image file failed");
+
+        // Open the FAT fs.
+        let fs = fatfs::FileSystem::new(&image_file, fatfs::FsOptions::new())
+            .expect("Failed to open filesystem");
 
         // Create run.efi
         let efi_exe_contents = std::fs::read(efi_exe).unwrap();
@@ -79,7 +98,7 @@ fn main() {
     }
 
     let mut qemu_args = vec![
-        "-drive".into(), format!("file={},index=0,media=disk,format=raw", image_file.path().display()),
+        "-drive".into(), format!("file={},index=0,media=disk,format=raw", image_file_path.display()),
         "-bios".into(), format!("{}", bios_path),
         "-net".into(), "none".into(),
     ];
