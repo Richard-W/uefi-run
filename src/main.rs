@@ -1,10 +1,16 @@
 extern crate clap;
+extern crate ctrlc;
 extern crate fatfs;
 extern crate tempfile;
+extern crate wait_timeout;
 
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Child, Command};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+use wait_timeout::ChildExt;
 
 fn main() {
     let matches = clap::App::new("uefi-run")
@@ -53,6 +59,19 @@ fn main() {
     let qemu_path = matches.value_of("qemu_path").unwrap_or("/usr/bin/qemu-system-x86_64");
     let size: u64 = matches.value_of("size").map(|v| v.parse().expect("Failed to parse --size argument")).unwrap_or(10);
     let user_qemu_args = matches.values_of("qemu_args").unwrap_or(clap::Values::default());
+
+    // Install termination signal handler. This ensures that the destructor of
+    // `temp_dir` which is constructed in the next step is really called and
+    // the files are cleaned up properly.
+    let terminating = Arc::new(AtomicBool::new(false));
+    {
+        let term = terminating.clone();
+        ctrlc::set_handler(move || {
+            println!("uefi-run terminating...");
+            // Tell the main thread to stop waiting.
+            term.store(true, Ordering::SeqCst);
+        }).expect("Error setting termination handler");
+    }
 
     // Create temporary dir for the image file.
     let temp_dir = tempfile::tempdir()
@@ -104,15 +123,61 @@ fn main() {
     ];
     qemu_args.extend(user_qemu_args.map(|x| x.into()));
 
-    // Run qemu and wait for it to terminate.
-    let ecode = Command::new(qemu_path)
+    // Run qemu.
+    let mut child = Command::new(qemu_path)
         .args(qemu_args)
         .spawn()
-        .expect("Failed to start qemu")
-        .wait()
-        .expect("Failed to wait on qemu")
-        ;
-    if !ecode.success() {
-        println!("qemu execution failed");
+        .expect("Failed to start qemu");
+
+    // Wait for qemu to exit or signal.
+    let mut child_terminated;
+    loop {
+        child_terminated = wait_qemu(&mut child, Duration::from_millis(500));
+        if child_terminated || terminating.load(Ordering::SeqCst) {
+            break;
+        }
+    }
+
+    // If uefi-run received a signal we still need the child to exit.
+    if !child_terminated {
+        child_terminated = wait_qemu(&mut child, Duration::from_secs(1));
+        if !child_terminated {
+            match child.kill() {
+                // Kill succeeded
+                Ok(_) => assert!(wait_qemu(&mut child, Duration::from_secs(1))),
+                Err(e) => {
+                    match e.kind() {
+                        // Not running anymore
+                        std::io::ErrorKind::InvalidInput => assert!(wait_qemu(&mut child, Duration::from_secs(1))),
+                        // Other error
+                        _ => panic!("Not able to kill child process: {:?}", e),
+                    }
+                },
+            }
+        }
+    }
+}
+
+/// Wait for the process to exit for `duration`.
+///
+/// Returns `true` if the process exited and false if the timeout expired.
+fn wait_qemu(child: &mut Child, duration: Duration) -> bool {
+    let wait_result = child.wait_timeout(duration)
+        .expect("Failed to wait on child process");
+    match wait_result {
+        None => {
+            // Child still alive.
+            return false;
+        }
+        Some(exit_status) => {
+            // Child exited.
+            if !exit_status.success() {
+                match exit_status.code() {
+                    Some(code) => println!("qemu exited with status {}", code),
+                    None => println!("qemu exited unsuccessfully"),
+                }
+            }
+            return true;
+        }
     }
 }
