@@ -1,3 +1,5 @@
+cargo-features = ["rename-dependency"]
+
 [package]
 name = "uefi-run"
 description = "Run UEFI applications"
