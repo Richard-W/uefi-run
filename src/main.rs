@@ -28,24 +28,24 @@ fn main() {
         .arg(
             clap::Arg::with_name("bios_path")
                 .value_name("bios_path")
-                .required(false)
-                .help("BIOS image (default = /usr/share/ovmf/OVMF.fd)")
+                .default_value("/usr/share/ovmf/OVMF.fd")
+                .help("BIOS image")
                 .short("b")
                 .long("bios"),
         )
         .arg(
             clap::Arg::with_name("qemu_path")
                 .value_name("qemu_path")
-                .required(false)
-                .help("Path to qemu executable (default = /usr/bin/qemu-system-x86_64")
+                .default_value("/usr/bin/qemu-system-x86_64")
+                .help("Path to qemu executable")
                 .short("q")
                 .long("qemu"),
         )
         .arg(
             clap::Arg::with_name("size")
                 .value_name("size")
-                .required(false)
-                .help("Size of the image in MiB (default = 10)")
+                .default_value("10")
+                .help("Size of the image in MiB")
                 .short("s")
                 .long("size"),
         )
@@ -60,16 +60,12 @@ fn main() {
 
     // Parse options
     let efi_exe = matches.value_of("efi_exe").unwrap();
-    let bios_path = matches
-        .value_of("bios_path")
-        .unwrap_or("/usr/share/ovmf/OVMF.fd");
-    let qemu_path = matches
-        .value_of("qemu_path")
-        .unwrap_or("/usr/bin/qemu-system-x86_64");
+    let bios_path = matches.value_of("bios_path").unwrap();
+    let qemu_path = matches.value_of("qemu_path").unwrap();
     let size: u64 = matches
         .value_of("size")
         .map(|v| v.parse().expect("Failed to parse --size argument"))
-        .unwrap_or(10);
+        .unwrap();
     let user_qemu_args = matches.values_of("qemu_args").unwrap_or_default();
 
     // Install termination signal handler. This ensures that the destructor of
