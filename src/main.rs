@@ -7,8 +7,8 @@ extern crate wait_timeout;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
@@ -19,46 +19,60 @@ fn main() {
         .about("Runs UEFI executables in qemu.")
         .setting(clap::AppSettings::TrailingVarArg)
         .setting(clap::AppSettings::DontDelimitTrailingValues)
-        .arg(clap::Arg::with_name("efi_exe")
-            .value_name("FILE")
-            .required(true)
-            .help("EFI executable")
+        .arg(
+            clap::Arg::with_name("efi_exe")
+                .value_name("FILE")
+                .required(true)
+                .help("EFI executable"),
         )
-        .arg(clap::Arg::with_name("bios_path")
-             .value_name("bios_path")
-             .required(false)
-             .help("BIOS image (default = /usr/share/ovmf/OVMF.fd)")
-             .short("b")
-             .long("bios")
+        .arg(
+            clap::Arg::with_name("bios_path")
+                .value_name("bios_path")
+                .required(false)
+                .help("BIOS image (default = /usr/share/ovmf/OVMF.fd)")
+                .short("b")
+                .long("bios"),
         )
-        .arg(clap::Arg::with_name("qemu_path")
-             .value_name("qemu_path")
-             .required(false)
-             .help("Path to qemu executable (default = /usr/bin/qemu-system-x86_64")
-             .short("q")
-             .long("qemu")
+        .arg(
+            clap::Arg::with_name("qemu_path")
+                .value_name("qemu_path")
+                .required(false)
+                .help("Path to qemu executable (default = /usr/bin/qemu-system-x86_64")
+                .short("q")
+                .long("qemu"),
         )
-        .arg(clap::Arg::with_name("size")
-             .value_name("size")
-             .required(false)
-             .help("Size of the image in MiB (default = 10)")
-             .short("s")
-             .long("size")
+        .arg(
+            clap::Arg::with_name("size")
+                .value_name("size")
+                .required(false)
+                .help("Size of the image in MiB (default = 10)")
+                .short("s")
+                .long("size"),
         )
-        .arg(clap::Arg::with_name("qemu_args")
-             .value_name("qemu_args")
-             .required(false)
-             .help("Additional arguments for qemu")
-             .multiple(true)
+        .arg(
+            clap::Arg::with_name("qemu_args")
+                .value_name("qemu_args")
+                .required(false)
+                .help("Additional arguments for qemu")
+                .multiple(true),
         )
         .get_matches();
 
     // Parse options
     let efi_exe = matches.value_of("efi_exe").unwrap();
-    let bios_path = matches.value_of("bios_path").unwrap_or("/usr/share/ovmf/OVMF.fd");
-    let qemu_path = matches.value_of("qemu_path").unwrap_or("/usr/bin/qemu-system-x86_64");
-    let size: u64 = matches.value_of("size").map(|v| v.parse().expect("Failed to parse --size argument")).unwrap_or(10);
-    let user_qemu_args = matches.values_of("qemu_args").unwrap_or(clap::Values::default());
+    let bios_path = matches
+        .value_of("bios_path")
+        .unwrap_or("/usr/share/ovmf/OVMF.fd");
+    let qemu_path = matches
+        .value_of("qemu_path")
+        .unwrap_or("/usr/bin/qemu-system-x86_64");
+    let size: u64 = matches
+        .value_of("size")
+        .map(|v| v.parse().expect("Failed to parse --size argument"))
+        .unwrap_or(10);
+    let user_qemu_args = matches
+        .values_of("qemu_args")
+        .unwrap_or(clap::Values::default());
 
     // Install termination signal handler. This ensures that the destructor of
     // `temp_dir` which is constructed in the next step is really called and
@@ -70,12 +84,12 @@ fn main() {
             println!("uefi-run terminating...");
             // Tell the main thread to stop waiting.
             term.store(true, Ordering::SeqCst);
-        }).expect("Error setting termination handler");
+        })
+        .expect("Error setting termination handler");
     }
 
     // Create temporary dir for the image file.
-    let temp_dir = tempfile::tempdir()
-        .expect("Unable to create temporary directory");
+    let temp_dir = tempfile::tempdir().expect("Unable to create temporary directory");
     let temp_dir_path = PathBuf::from(temp_dir.path());
 
     // Path to the image file
@@ -94,7 +108,8 @@ fn main() {
             .open(&image_file_path)
             .expect("Image file creation failed");
         // Truncate image to `size` MiB
-        image_file.set_len(size * 0x10_0000)
+        image_file
+            .set_len(size * 0x10_0000)
             .expect("Truncating image file failed");
         // Format file as FAT
         fatfs::format_volume(&image_file, fatfs::FormatVolumeOptions::new())
@@ -113,13 +128,21 @@ fn main() {
         // Create startup.nsh
         let mut startup_nsh = fs.root_dir().create_file("startup.nsh").unwrap();
         startup_nsh.truncate().unwrap();
-        startup_nsh.write_all(include_bytes!("startup.nsh")).unwrap();
+        startup_nsh
+            .write_all(include_bytes!("startup.nsh"))
+            .unwrap();
     }
 
     let mut qemu_args = vec![
-        "-drive".into(), format!("file={},index=0,media=disk,format=raw", image_file_path.display()),
-        "-bios".into(), format!("{}", bios_path),
-        "-net".into(), "none".into(),
+        "-drive".into(),
+        format!(
+            "file={},index=0,media=disk,format=raw",
+            image_file_path.display()
+        ),
+        "-bios".into(),
+        format!("{}", bios_path),
+        "-net".into(),
+        "none".into(),
     ];
     qemu_args.extend(user_qemu_args.map(|x| x.into()));
 
@@ -148,11 +171,13 @@ fn main() {
                 Err(e) => {
                     match e.kind() {
                         // Not running anymore
-                        std::io::ErrorKind::InvalidInput => assert!(wait_qemu(&mut child, Duration::from_secs(1))),
+                        std::io::ErrorKind::InvalidInput => {
+                            assert!(wait_qemu(&mut child, Duration::from_secs(1)))
+                        }
                         // Other error
                         _ => panic!("Not able to kill child process: {:?}", e),
                     }
-                },
+                }
             }
         }
     }
@@ -162,7 +187,8 @@ fn main() {
 ///
 /// Returns `true` if the process exited and false if the timeout expired.
 fn wait_qemu(child: &mut Child, duration: Duration) -> bool {
-    let wait_result = child.wait_timeout(duration)
+    let wait_result = child
+        .wait_timeout(duration)
         .expect("Failed to wait on child process");
     match wait_result {
         None => {
