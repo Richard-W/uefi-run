@@ -70,9 +70,7 @@ fn main() {
         .value_of("size")
         .map(|v| v.parse().expect("Failed to parse --size argument"))
         .unwrap_or(10);
-    let user_qemu_args = matches
-        .values_of("qemu_args")
-        .unwrap_or(clap::Values::default());
+    let user_qemu_args = matches.values_of("qemu_args").unwrap_or_default();
 
     // Install termination signal handler. This ensures that the destructor of
     // `temp_dir` which is constructed in the next step is really called and
@@ -94,7 +92,7 @@ fn main() {
 
     // Path to the image file
     let image_file_path = {
-        let mut path_buf = temp_dir_path.clone();
+        let mut path_buf = temp_dir_path;
         path_buf.push("image.fat");
         path_buf
     };
@@ -140,7 +138,7 @@ fn main() {
             image_file_path.display()
         ),
         "-bios".into(),
-        format!("{}", bios_path),
+        bios_path.into(),
         "-net".into(),
         "none".into(),
     ];
@@ -193,7 +191,7 @@ fn wait_qemu(child: &mut Child, duration: Duration) -> bool {
     match wait_result {
         None => {
             // Child still alive.
-            return false;
+            false
         }
         Some(exit_status) => {
             // Child exited.
@@ -203,7 +201,7 @@ fn wait_qemu(child: &mut Child, duration: Duration) -> bool {
                     None => println!("qemu exited unsuccessfully"),
                 }
             }
-            return true;
+            true
         }
     }
 }
