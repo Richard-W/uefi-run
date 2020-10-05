@@ -28,7 +28,7 @@ fn main() {
         .arg(
             clap::Arg::with_name("bios_path")
                 .value_name("bios_path")
-                .default_value("/usr/share/ovmf/OVMF.fd")
+                .default_value("OVMF.fd")
                 .help("BIOS image")
                 .short("b")
                 .long("bios"),
@@ -36,7 +36,7 @@ fn main() {
         .arg(
             clap::Arg::with_name("qemu_path")
                 .value_name("qemu_path")
-                .default_value("/usr/bin/qemu-system-x86_64")
+                .default_value("qemu-system-x86_64")
                 .help("Path to qemu executable")
                 .short("q")
                 .long("qemu"),
