@@ -12,54 +12,56 @@ on:
 
 jobs:
   build:
-
     strategy:
       matrix:
         os:
           - ubuntu-latest
           - macOS-latest
           - windows-latest
-
     runs-on: ${{ matrix.os }}
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
 
   clippy:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Run clippy
-      run: cargo clippy --verbose --all --tests
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run clippy
+        run: cargo clippy --verbose --all --tests
 
   format:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Check formatting
-      run: cargo fmt --all -- --check
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
   publish_snap:
-
     runs-on: ubuntu-latest
-
     if: ${{ github.ref == "master" }}
     needs: [build, clippy, format]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
+
       - name: Install snapcraft
         uses: samuelmeuli/action-snapcraft@v1
         with:
           snapcraft_token: ${{ secrets.snapcraft_token }}
+
       - name: Build snap
         run: snapcraft
+
       - name: Publish snap
         run: snapcraft upload ./uefi-run_*.snap --release edge
