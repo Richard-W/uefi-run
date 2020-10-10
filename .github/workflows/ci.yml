@@ -60,6 +60,9 @@ jobs:
         with:
           snapcraft_token: ${{ secrets.snapcraft_token }}
 
+      - name: Install review tools
+        run: sudo snap install review-tools
+
       - name: Build snap
         run: snapcraft
 
