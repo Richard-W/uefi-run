@@ -58,13 +58,14 @@ jobs:
       - name: Install snapcraft
         uses: samuelmeuli/action-snapcraft@v1
         with:
+          use_lxd: true
           snapcraft_token: ${{ secrets.snapcraft_token }}
 
       - name: Install review tools
         run: sudo snap install review-tools
 
       - name: Build snap
-        run: snapcraft
+        run: sg lxd -c 'snapcraft --use-lxd'
 
       - name: Publish snap
         run: snapcraft upload ./uefi-run_*.snap --release edge
