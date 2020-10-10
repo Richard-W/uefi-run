@@ -1,0 +1,51 @@
+name: uefi-run
+summary: Run UEFI applications
+license: MIT
+description: |
+  Run an UEFI executable in qemu. This tool builds an EFI partition image
+  with the provided application. The application is then started inside
+  qemu from the EFI shell.
+
+adopt-info: uefi-run
+base: core18
+confinement: strict
+
+layout:
+  /usr/lib/ipxe:
+    bind: $SNAP/usr/lib/ipxe
+  /usr/share/ovmf:
+    bind: $SNAP/usr/share/ovmf
+  /usr/share/qemu:
+    bind: $SNAP/usr/share/qemu
+  /usr/share/seabios:
+    bind: $SNAP/usr/share/seabios
+
+plugs:
+  home:
+  x11:
+
+parts:
+  uefi-run:
+    plugin: rust
+    source: .
+    build-packages:
+      - build-essential
+    stage-packages:
+      - freeglut3
+      - libglu1-mesa
+      - libslang2
+      - ovmf
+      - qemu-system-x86
+    override-pull: |
+      snapcraftctl pull
+      grade=$(if git describe | grep -qP '^v\d\.\d\.\d$'; then echo stable; else echo devel; fi)
+      version=$(grep -oP '(?<=version = ")[^"]+(?=")' < Cargo.toml | head -n1)
+      if [ "${grade}" = "devel" ]; then
+        version="${version}-$(git describe --exclude '*' --always)"
+      fi
+      snapcraftctl set-version ${version}
+      snapcraftctl set-grade ${grade}
+
+apps:
+  uefi-run:
+    command: bin/uefi-run
