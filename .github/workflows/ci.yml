@@ -49,7 +49,7 @@ jobs:
 
   publish_snap:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'master' }}
+    if: ${{ github.ref == 'refs/heads/master' }}
     needs: [build, clippy, format]
     steps:
       - name: Checkout
