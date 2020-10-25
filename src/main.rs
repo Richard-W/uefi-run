@@ -147,57 +147,50 @@ fn main() {
         .expect("Failed to start qemu");
 
     // Wait for qemu to exit or signal.
-    let mut child_terminated;
+    let mut qemu_exit_code;
     loop {
-        child_terminated = wait_qemu(&mut child, Duration::from_millis(500));
-        if child_terminated || terminating.load(Ordering::SeqCst) {
+        qemu_exit_code = wait_qemu(&mut child, Duration::from_millis(500));
+        if qemu_exit_code.is_some() || terminating.load(Ordering::SeqCst) {
             break;
         }
     }
 
-    // If uefi-run received a signal we still need the child to exit.
-    if !child_terminated {
-        child_terminated = wait_qemu(&mut child, Duration::from_secs(1));
-        if !child_terminated {
-            match child.kill() {
-                // Kill succeeded
-                Ok(_) => assert!(wait_qemu(&mut child, Duration::from_secs(1))),
-                Err(e) => {
-                    match e.kind() {
-                        // Not running anymore
-                        std::io::ErrorKind::InvalidInput => {
-                            assert!(wait_qemu(&mut child, Duration::from_secs(1)))
-                        }
-                        // Other error
-                        _ => panic!("Not able to kill child process: {:?}", e),
-                    }
-                }
-            }
-        }
+    // The above loop may have been broken by a signal
+    if qemu_exit_code.is_none() {
+        // In this case we wait for qemu to exit for one second
+        qemu_exit_code = wait_qemu(&mut child, Duration::from_secs(1));
     }
+
+    // Qemu may still be running
+    if qemu_exit_code.is_none() {
+        // In this case we need to kill it
+        child
+            .kill()
+            .or_else(|e| match e.kind() {
+                // Not running anymore
+                std::io::ErrorKind::InvalidInput => Ok(()),
+                _ => Err(e),
+            })
+            .expect("Unable to kill qemu process");
+        qemu_exit_code = wait_qemu(&mut child, Duration::from_secs(1));
+    }
+
+    let exit_code = qemu_exit_code.expect("qemu should have exited by now but did not");
+    std::process::exit(exit_code);
 }
 
 /// Wait for the process to exit for `duration`.
 ///
 /// Returns `true` if the process exited and false if the timeout expired.
-fn wait_qemu(child: &mut Child, duration: Duration) -> bool {
+fn wait_qemu(child: &mut Child, duration: Duration) -> Option<i32> {
     let wait_result = child
         .wait_timeout(duration)
         .expect("Failed to wait on child process");
     match wait_result {
         None => {
             // Child still alive.
-            false
+            None
         }
-        Some(exit_status) => {
-            // Child exited.
-            if !exit_status.success() {
-                match exit_status.code() {
-                    Some(code) => println!("qemu exited with status {}", code),
-                    None => println!("qemu exited unsuccessfully"),
-                }
-            }
-            true
-        }
+        Some(exit_status) => Some(exit_status.code().unwrap_or(0)),
     }
 }
