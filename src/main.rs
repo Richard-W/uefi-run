@@ -4,6 +4,7 @@ extern crate fatfs;
 extern crate tempfile;
 extern crate wait_timeout;
 
+use std::ffi::OsStr;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command};
@@ -50,6 +51,20 @@ fn main() {
                 .long("size"),
         )
         .arg(
+            clap::Arg::with_name("add_files")
+                .value_name("location_on_disk>:<location_within_image")
+                .required(false)
+                .help("Additional files to be added to the efi image")
+                .long_help(
+                    "Additional files to be added to the efi image\n\
+                     If no inner location is provided, it will default\n\
+                     to the root of the image with the same name as the provided file",
+                )
+                .multiple(true)
+                .short("f")
+                .long("add-file").number_of_values(1),
+        )
+        .arg(
             clap::Arg::with_name("qemu_args")
                 .value_name("qemu_args")
                 .required(false)
@@ -67,6 +82,7 @@ fn main() {
         .map(|v| v.parse().expect("Failed to parse --size argument"))
         .unwrap();
     let user_qemu_args = matches.values_of("qemu_args").unwrap_or_default();
+    let additional_files = matches.values_of("add_files").unwrap_or_default();
 
     // Install termination signal handler. This ensures that the destructor of
     // `temp_dir` which is constructed in the next step is really called and
@@ -125,6 +141,75 @@ fn main() {
         startup_nsh
             .write_all(include_bytes!("startup.nsh"))
             .unwrap();
+
+        // Create user provided additional files
+        for file in additional_files {
+            // Get a reference to the root of the image file
+            let mut current_fs_dir = fs.root_dir();
+            // Save a reference to the origional argument
+            let orig_file = file;
+
+            // Split the argument to get the inner and outer files
+            let mut file = file.split(':');
+            // Get the path to the real file on the host system
+            let outer = PathBuf::from(
+                file.next()
+                    .expect(&format!("Invalid --add-file argument: \"{}\"", orig_file)),
+            );
+            // Get the path to the file/dir to write the file to within the FAT fs drive
+            let inner = match file.next_back() {
+                Some(path) => PathBuf::from(path),
+                None => outer.clone(),
+            };
+            // Make sure the argument was actually well-formed (ie. no additional ':' segments)
+            if file.next().is_some() {
+                panic!("Invalid --add-file argument: \"{}\"", orig_file)
+            }
+
+            // Convert the inner to an iterator so we can get the components
+            let mut inner = inner.iter();
+
+            // Get the inner filename
+            let inner_file = inner
+                .next_back()
+                .expect(&format!("Invalid --add-file argument: \"{}\"", orig_file))
+                .to_str()
+                .expect(&format!("Invalid --add-file argument: \"{}\"", orig_file));
+
+            // Step through each dir within the inner path
+            for path in inner {
+                // The only component that would be just a `MAIN_SEPARATOR` is the RootDir
+                // component if provided, which we can just ignore as we always build from
+                // the root for the inner file anyway
+                if path == OsStr::new(&std::path::MAIN_SEPARATOR.to_string()) {
+                    continue;
+                }
+
+                // Convert each path component into a &str because `fatfs` can't handle &OsStr's
+                let path = path
+                    .to_str()
+                    .expect(&format!("Invalid --add-file argument: \"{}\"", orig_file));
+
+                // Create the path within the image and set it as the current dir
+                current_fs_dir = current_fs_dir.create_dir(path).unwrap();
+            }
+
+            // Create (or open) the file within the image
+            let mut user_file = current_fs_dir.create_file(inner_file).unwrap();
+
+            // Read in the outer file
+            let data = std::fs::read(outer).expect(&format!(
+                "Invalid --add-file argument - Failed to read outer file: \"{}\"",
+                orig_file
+            ));
+
+            // Erase the file inside the image (if it exists)
+            // This means that any files that have already been placed in the image
+            // (due to earlier command line arguments) will be overwritten.
+            user_file.truncate().unwrap();
+            // Write the file to the image
+            user_file.write_all(&data).unwrap();
+        }
     }
 
     let mut qemu_args = vec![
