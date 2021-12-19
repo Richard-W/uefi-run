@@ -29,6 +29,22 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  build_snap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Snapcraft
+        id: snapcraft
+        uses: snapcore/action-build@v1
+
+      - name: Upload Snap Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: snap
+          path: ${{ steps.snapcraft.outputs.snap }}
+
   clippy:
     runs-on: ubuntu-latest
     steps:
