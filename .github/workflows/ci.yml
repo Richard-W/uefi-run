@@ -66,22 +66,20 @@ jobs:
   publish_snap:
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' }}
-    needs: [build, clippy, format]
+    needs: [build, build_snap, clippy, format]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Install snapcraft
-        uses: samuelmeuli/action-snapcraft@v1
+      - name: Download Snap Artifact
+        uses: actions/download-artifact@v2
         with:
-          use_lxd: true
-          snapcraft_token: ${{ secrets.snapcraft_token }}
+          name: snap
 
-      - name: Install review tools
-        run: sudo snap install review-tools
-
-      - name: Build snap
-        run: sg lxd -c 'snapcraft --use-lxd'
+      - name: Get snap filename
+        id: get_filename
+        run: 'echo ::set-output name=filename::$(ls *.snap)'
 
       - name: Publish snap
-        run: snapcraft upload ./uefi-run_*.snap --release edge
+        uses: snapcore/action-publish@v1
+        with:
+          store_login: ${{ secrets.SNAPSTORE_LOGIN }}
+          snap: ${{ steps.get_filename.outputs.filename }}
+          release: edge
