@@ -62,7 +62,8 @@ fn main() {
                 )
                 .multiple(true)
                 .short("f")
-                .long("add-file").number_of_values(1),
+                .long("add-file")
+                .number_of_values(1),
         )
         .arg(
             clap::Arg::with_name("qemu_args")
