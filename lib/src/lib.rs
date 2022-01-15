@@ -7,17 +7,17 @@ use std::sync::Arc;
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
-pub struct Qemu {}
+pub struct Qemu<'a> {
+    pub efi_exe: &'a str,
+    pub bios_path: &'a str,
+    pub qemu_path: &'a str,
+    pub size: u64,
+    pub user_qemu_args: clap::Values<'a>,
+    pub additional_files: clap::Values<'a>,
+}
 
-impl Qemu {
-    pub fn run(
-        efi_exe: &str,
-        bios_path: &str,
-        qemu_path: &str,
-        size: u64,
-        user_qemu_args: clap::Values,
-        additional_files: clap::Values,
-    ) -> Option<i32> {
+impl<'a> Qemu<'a> {
+    pub fn run(&self) -> Option<i32> {
         // Install termination signal handler. This ensures that the destructor of
         // `temp_dir` which is constructed in the next step is really called and
         // the files are cleaned up properly.
@@ -53,7 +53,7 @@ impl Qemu {
                 .expect("Image file creation failed");
             // Truncate image to `size` MiB
             image_file
-                .set_len(size * 0x10_0000)
+                .set_len(self.size * 0x10_0000)
                 .expect("Truncating image file failed");
             // Format file as FAT
             fatfs::format_volume(&image_file, fatfs::FormatVolumeOptions::new())
@@ -64,7 +64,7 @@ impl Qemu {
                 .expect("Failed to open filesystem");
 
             // Create run.efi
-            let efi_exe_contents = std::fs::read(efi_exe).unwrap();
+            let efi_exe_contents = std::fs::read(self.efi_exe).unwrap();
             let mut run_efi = fs.root_dir().create_file("run.efi").unwrap();
             run_efi.truncate().unwrap();
             run_efi.write_all(&efi_exe_contents).unwrap();
@@ -77,7 +77,7 @@ impl Qemu {
                 .unwrap();
 
             // Create user provided additional files
-            for file in additional_files {
+            for file in self.additional_files.clone() {
                 // Get a reference to the root of the image file
                 let mut current_fs_dir = fs.root_dir();
                 // Save a reference to the origional argument
@@ -153,14 +153,14 @@ impl Qemu {
                 image_file_path.display()
             ),
             "-bios".into(),
-            bios_path.into(),
+            self.bios_path.into(),
             "-net".into(),
             "none".into(),
         ];
-        qemu_args.extend(user_qemu_args.map(|x| x.into()));
+        qemu_args.extend(self.user_qemu_args.clone().map(|x| x.into()));
 
         // Run qemu.
-        let mut child = Command::new(qemu_path)
+        let mut child = Command::new(self.qemu_path)
             .args(qemu_args)
             .spawn()
             .expect("Failed to start qemu");
