@@ -69,16 +69,19 @@ fn main() {
         .value_of("size")
         .map(|v| v.parse().expect("Failed to parse --size argument"))
         .unwrap();
-    let user_qemu_args = matches.values_of("qemu_args").unwrap_or_default();
-    let additional_files = matches.values_of("add_files").unwrap_or_default();
+    let user_qemu_args: Vec<_> = matches
+        .values_of_os("qemu_args")
+        .unwrap_or_default()
+        .collect();
+    let additional_files: Vec<_> = matches.values_of("add_files").unwrap_or_default().collect();
 
     let qemu_exit_code = Qemu {
         efi_exe,
         bios_path,
         qemu_path,
         size,
-        user_qemu_args,
-        additional_files,
+        user_qemu_args: &user_qemu_args,
+        additional_files: &additional_files,
     }
     .run();
 

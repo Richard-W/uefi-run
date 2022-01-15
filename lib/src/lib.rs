@@ -12,8 +12,8 @@ pub struct Qemu<'a> {
     pub bios_path: &'a str,
     pub qemu_path: &'a str,
     pub size: u64,
-    pub user_qemu_args: clap::Values<'a>,
-    pub additional_files: clap::Values<'a>,
+    pub user_qemu_args: &'a [&'a OsStr],
+    pub additional_files: &'a [&'a str],
 }
 
 impl<'a> Qemu<'a> {
@@ -77,7 +77,7 @@ impl<'a> Qemu<'a> {
                 .unwrap();
 
             // Create user provided additional files
-            for file in self.additional_files.clone() {
+            for file in self.additional_files {
                 // Get a reference to the root of the image file
                 let mut current_fs_dir = fs.root_dir();
                 // Save a reference to the origional argument
@@ -159,9 +159,7 @@ impl<'a> Qemu<'a> {
             "-net",
             "none",
         ]);
-        for arg in self.user_qemu_args.clone() {
-            cmd.arg(arg);
-        }
+        cmd.args(self.user_qemu_args);
 
         // Run qemu.
         let mut child = cmd.spawn().expect("Failed to start qemu");
