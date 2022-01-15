@@ -146,24 +146,25 @@ impl<'a> Qemu<'a> {
             }
         }
 
-        let mut qemu_args = vec![
-            "-drive".into(),
-            format!(
+        // Create qemu command.
+        let mut cmd = Command::new(self.qemu_path);
+        cmd.args(&[
+            "-drive",
+            &format!(
                 "file={},index=0,media=disk,format=raw",
                 image_file_path.display()
             ),
-            "-bios".into(),
-            self.bios_path.into(),
-            "-net".into(),
-            "none".into(),
-        ];
-        qemu_args.extend(self.user_qemu_args.clone().map(|x| x.into()));
+            "-bios",
+            self.bios_path,
+            "-net",
+            "none",
+        ]);
+        for arg in self.user_qemu_args.clone() {
+            cmd.arg(arg);
+        }
 
         // Run qemu.
-        let mut child = Command::new(self.qemu_path)
-            .args(qemu_args)
-            .spawn()
-            .expect("Failed to start qemu");
+        let mut child = cmd.spawn().expect("Failed to start qemu");
 
         // Wait for qemu to exit or signal.
         let mut qemu_exit_code;
