@@ -4,3 +4,8 @@ version = "0.4.0"
 edition = "2018"
 
 [dependencies]
+clap = "2.32"
+ctrlc = { version="3.1", features=["termination"] }
+fatfs = "0.3"
+tempfile = "3.0"
+wait-timeout = "0.2"

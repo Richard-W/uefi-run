@@ -12,11 +12,7 @@ members = ["lib"]
 
 [dependencies]
 clap = "2.32"
-ctrlc = { version="3.1", features=["termination"] }
-fatfs = "0.3"
-tempfile = "3.0"
 uefi-run-lib = "0.4"
-wait-timeout = "0.2"
 
 [patch.crates-io]
 uefi-run-lib = { path="lib" }
