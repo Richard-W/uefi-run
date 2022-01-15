@@ -1,4 +1,4 @@
-use uefi_run_lib::run_qemu;
+use uefi_run_lib::Qemu;
 
 fn main() {
     let matches = clap::App::new("uefi-run")
@@ -72,7 +72,7 @@ fn main() {
     let user_qemu_args = matches.values_of("qemu_args").unwrap_or_default();
     let additional_files = matches.values_of("add_files").unwrap_or_default();
 
-    let qemu_exit_code = run_qemu(
+    let qemu_exit_code = Qemu::run(
         efi_exe,
         bios_path,
         qemu_path,
