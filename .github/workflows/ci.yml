@@ -6,6 +6,8 @@ on:
       - master
       - staging
       - trying
+    tags:
+      - '*'
   pull_request:
     branches:
       - master
