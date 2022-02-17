@@ -8,8 +8,8 @@ repository = "https://github.com/richard-w/uefi-run"
 edition = "2018"
 
 [dependencies]
-clap = "2.32"
-ctrlc = { version="3.1", features=["termination"] }
+clap = { version = "3.1", features = ["cargo"] }
+ctrlc = { version = "3.1", features = ["termination"] }
 fatfs = "0.3"
 tempfile = "3.0"
 wait-timeout = "0.2"
