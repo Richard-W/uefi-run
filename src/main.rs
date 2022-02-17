@@ -14,44 +14,44 @@ use std::time::Duration;
 use wait_timeout::ChildExt;
 
 fn main() {
-    let matches = clap::App::new("uefi-run")
+    let matches = clap::Command::new("uefi-run")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Richard Wiedenhöft <richard@wiedenhoeft.xyz>")
         .about("Runs UEFI executables in qemu.")
-        .setting(clap::AppSettings::TrailingVarArg)
-        .setting(clap::AppSettings::DontDelimitTrailingValues)
+        .trailing_var_arg(true)
+        .dont_delimit_trailing_values(true)
         .arg(
-            clap::Arg::with_name("efi_exe")
+            clap::Arg::new("efi_exe")
                 .value_name("FILE")
                 .required(true)
                 .help("EFI executable"),
         )
         .arg(
-            clap::Arg::with_name("bios_path")
+            clap::Arg::new("bios_path")
                 .value_name("bios_path")
                 .default_value("OVMF.fd")
                 .help("BIOS image")
-                .short("b")
+                .short('b')
                 .long("bios"),
         )
         .arg(
-            clap::Arg::with_name("qemu_path")
+            clap::Arg::new("qemu_path")
                 .value_name("qemu_path")
                 .default_value("qemu-system-x86_64")
                 .help("Path to qemu executable")
-                .short("q")
+                .short('q')
                 .long("qemu"),
         )
         .arg(
-            clap::Arg::with_name("size")
+            clap::Arg::new("size")
                 .value_name("size")
                 .default_value("10")
                 .help("Size of the image in MiB")
-                .short("s")
+                .short('s')
                 .long("size"),
         )
         .arg(
-            clap::Arg::with_name("add_files")
+            clap::Arg::new("add_files")
                 .value_name("location_on_disk>:<location_within_image")
                 .required(false)
                 .help("Additional files to be added to the efi image")
@@ -60,17 +60,17 @@ fn main() {
                      If no inner location is provided, it will default\n\
                      to the root of the image with the same name as the provided file",
                 )
-                .multiple(true)
-                .short("f")
+                .multiple_occurrences(true)
+                .short('f')
                 .long("add-file")
                 .number_of_values(1),
         )
         .arg(
-            clap::Arg::with_name("qemu_args")
+            clap::Arg::new("qemu_args")
                 .value_name("qemu_args")
                 .required(false)
                 .help("Additional arguments for qemu")
-                .multiple(true),
+                .multiple_values(true),
         )
         .get_matches();
 
