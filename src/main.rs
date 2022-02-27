@@ -1,9 +1,3 @@
-extern crate clap;
-extern crate ctrlc;
-extern crate fatfs;
-extern crate tempfile;
-extern crate wait_timeout;
-
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::PathBuf;
