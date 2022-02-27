@@ -2,6 +2,7 @@ mod image;
 use image::*;
 
 use anyhow::{Error, Result};
+use clap::Parser;
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::PathBuf;
@@ -11,77 +12,39 @@ use std::sync::Arc;
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
-fn main() {
-    let matches = clap::Command::new("uefi-run")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author("Richard Wiedenhöft <richard@wiedenhoeft.xyz>")
-        .about("Runs UEFI executables in qemu.")
-        .trailing_var_arg(true)
-        .dont_delimit_trailing_values(true)
-        .arg(
-            clap::Arg::new("efi_exe")
-                .value_name("FILE")
-                .required(true)
-                .help("EFI executable"),
-        )
-        .arg(
-            clap::Arg::new("bios_path")
-                .value_name("bios_path")
-                .default_value("OVMF.fd")
-                .help("BIOS image")
-                .short('b')
-                .long("bios"),
-        )
-        .arg(
-            clap::Arg::new("qemu_path")
-                .value_name("qemu_path")
-                .default_value("qemu-system-x86_64")
-                .help("Path to qemu executable")
-                .short('q')
-                .long("qemu"),
-        )
-        .arg(
-            clap::Arg::new("size")
-                .value_name("size")
-                .default_value("10")
-                .help("Size of the image in MiB")
-                .short('s')
-                .long("size"),
-        )
-        .arg(
-            clap::Arg::new("add_files")
-                .value_name("location_on_disk>:<location_within_image")
-                .required(false)
-                .help("Additional files to be added to the efi image")
-                .long_help(
-                    "Additional files to be added to the efi image\n\
-                     If no inner location is provided, it will default\n\
-                     to the root of the image with the same name as the provided file",
-                )
-                .multiple_occurrences(true)
-                .short('f')
-                .long("add-file")
-                .number_of_values(1),
-        )
-        .arg(
-            clap::Arg::new("qemu_args")
-                .value_name("qemu_args")
-                .required(false)
-                .help("Additional arguments for qemu")
-                .multiple_values(true),
-        )
-        .get_matches();
+#[derive(Parser, Debug, PartialEq)]
+#[clap(
+    version,
+    author,
+    about,
+    trailing_var_arg = true,
+    dont_delimit_trailing_values = true,
+)]
+struct Args {
+    /// Bost image
+    #[clap(long, short = 'b', default_value = "OVMF.fd")]
+    bios_path: String,
+    /// Path to qemu executable
+    #[clap(long, short = 'q', default_value = "qemu-system-x86_64")]
+    qemu_path: String,
+    /// Size of the image in MiB
+    #[clap(long, short = 's', default_value_t = 10)]
+    size: u64,
+    /// Additional files to be added to the efi image
+    ///
+    /// Additional files to be added to the efi image. If no inner location is provided, it will
+    /// default to the root of the image with the same name as the provided file.
+    #[clap(long, short = 'f')]
+    add_file: Vec<String>,
+    /// EFI Executable
+    efi_exe: String,
+    /// Additional arguments for qemu
+    qemu_args: Vec<String>,
+}
 
-    // Parse options
-    let efi_exe = matches.value_of("efi_exe").unwrap();
-    let bios_path = matches.value_of("bios_path").unwrap();
-    let qemu_path = matches.value_of("qemu_path").unwrap();
-    let size: u64 = matches
-        .value_of("size")
-        .map(|v| v.parse().expect("Failed to parse --size argument"))
-        .unwrap();
-    let user_qemu_args = matches.values_of("qemu_args").unwrap_or_default();
-    let additional_files = matches.values_of("add_files").unwrap_or_default();
+fn main() {
+    // Parse command line
+    let args = Args::parse();
 
     // Install termination signal handler. This ensures that the destructor of
     // `temp_dir` which is constructed in the next step is really called and
@@ -110,11 +73,11 @@ fn main() {
 
     {
         let mut image =
-            EfiImage::new(&image_file_path, size * 0x10_0000).expect("Failed to create image");
+            EfiImage::new(&image_file_path, args.size * 0x10_0000).expect("Failed to create image");
 
         // Create run.efi
         image
-            .copy_host_file(&efi_exe, "run.efi")
+            .copy_host_file(&args.efi_exe, "run.efi")
             .expect("Failed to copy EFI executable");
 
         // Create startup.nsh
@@ -123,7 +86,7 @@ fn main() {
             .expect("Failed to write startup script");
 
         // Create user provided additional files
-        for file in additional_files {
+        for file in args.add_file {
             // Split the argument to get the inner and outer files
             let (outer, inner) = file.split_once(':').expect("Invalid --add-file argument");
             // Copy the file into the image
@@ -140,14 +103,14 @@ fn main() {
             image_file_path.display()
         ),
         "-bios".into(),
-        bios_path.into(),
+        args.bios_path.into(),
         "-net".into(),
         "none".into(),
     ];
-    qemu_args.extend(user_qemu_args.map(|x| x.into()));
+    qemu_args.extend(args.qemu_args.iter().map(|x| x.into()));
 
     // Run qemu.
-    let mut child = Command::new(qemu_path)
+    let mut child = Command::new(args.qemu_path)
         .args(qemu_args)
         .spawn()
         .expect("Failed to start qemu");
