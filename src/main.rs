@@ -113,7 +113,7 @@ fn main() {
             image_file_path.display()
         ),
         "-bios".into(),
-        args.bios_path.into(),
+        args.bios_path,
         "-net".into(),
         "none".into(),
     ];
