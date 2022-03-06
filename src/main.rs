@@ -162,14 +162,8 @@ fn main() {
 ///
 /// Returns `true` if the process exited and false if the timeout expired.
 fn wait_qemu(child: &mut Child, duration: Duration) -> Option<i32> {
-    let wait_result = child
+    child
         .wait_timeout(duration)
-        .expect("Failed to wait on child process");
-    match wait_result {
-        None => {
-            // Child still alive.
-            None
-        }
-        Some(exit_status) => Some(exit_status.code().unwrap_or(0)),
-    }
+        .expect("Failed to wait on child process")
+        .map(|exit_status| exit_status.code().unwrap_or(0))
 }
