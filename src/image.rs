@@ -1,7 +1,10 @@
 use super::*;
+use std::ffi::OsStr;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 
+/// Handle to a FAT filesystem used as an EFI partition
 pub struct EfiImage {
     fs: fatfs::FileSystem<fs::File>,
 }

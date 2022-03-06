@@ -1,15 +1,10 @@
-mod image;
-use image::*;
-
-use anyhow::{Error, Result};
 use clap::Parser;
-use std::ffi::OsStr;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use uefi_run::*;
 use wait_timeout::ChildExt;
 
 #[derive(Parser, Debug, PartialEq)]
