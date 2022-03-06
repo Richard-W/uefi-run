@@ -88,7 +88,17 @@ fn main() {
         // Create user provided additional files
         for file in args.add_file {
             // Split the argument to get the inner and outer files
-            let (outer, inner) = file.split_once(':').expect("Invalid --add-file argument");
+            let (outer, inner) = file
+                .split_once(':')
+                .map(|(x, y)| (PathBuf::from(x), PathBuf::from(y)))
+                .unwrap_or_else(|| {
+                    let outer = PathBuf::from(&file);
+                    let inner = PathBuf::from(&file)
+                        .file_name()
+                        .expect("Invalid --add-file argument")
+                        .into();
+                    (outer, inner)
+                });
             // Copy the file into the image
             image
                 .copy_host_file(outer, inner)
