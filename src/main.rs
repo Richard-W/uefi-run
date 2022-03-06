@@ -7,36 +7,6 @@ use std::time::Duration;
 use uefi_run::*;
 use wait_timeout::ChildExt;
 
-#[derive(Parser, Debug, PartialEq)]
-#[clap(
-    version,
-    author,
-    about,
-    trailing_var_arg = true,
-    dont_delimit_trailing_values = true,
-)]
-struct Args {
-    /// Bost image
-    #[clap(long, short = 'b', default_value = "OVMF.fd")]
-    bios_path: String,
-    /// Path to qemu executable
-    #[clap(long, short = 'q', default_value = "qemu-system-x86_64")]
-    qemu_path: String,
-    /// Size of the image in MiB
-    #[clap(long, short = 's', default_value_t = 10)]
-    size: u64,
-    /// Additional files to be added to the efi image
-    ///
-    /// Additional files to be added to the efi image. If no inner location is provided, it will
-    /// default to the root of the image with the same name as the provided file.
-    #[clap(long, short = 'f')]
-    add_file: Vec<String>,
-    /// EFI Executable
-    efi_exe: String,
-    /// Additional arguments for qemu
-    qemu_args: Vec<String>,
-}
-
 fn main() {
     // Parse command line
     let args = Args::parse();
@@ -81,19 +51,7 @@ fn main() {
             .expect("Failed to write startup script");
 
         // Create user provided additional files
-        for file in args.add_file {
-            // Split the argument to get the inner and outer files
-            let (outer, inner) = file
-                .split_once(':')
-                .map(|(x, y)| (PathBuf::from(x), PathBuf::from(y)))
-                .unwrap_or_else(|| {
-                    let outer = PathBuf::from(&file);
-                    let inner = PathBuf::from(&file)
-                        .file_name()
-                        .expect("Invalid --add-file argument")
-                        .into();
-                    (outer, inner)
-                });
+        for (outer, inner) in args.parse_add_file_args().map(|x| x.unwrap()) {
             // Copy the file into the image
             image
                 .copy_host_file(outer, inner)
