@@ -1,11 +1,9 @@
 use clap::Parser;
 use std::path::PathBuf;
-use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use uefi_run::*;
-use wait_timeout::ChildExt;
 
 fn main() {
     // Parse command line
@@ -59,29 +57,27 @@ fn main() {
         }
     }
 
-    let mut qemu_args = vec![
-        "-drive".into(),
-        format!(
-            "file={},index=0,media=disk,format=raw",
-            image_file_path.display()
-        ),
-        "-bios".into(),
-        args.bios_path,
-        "-net".into(),
-        "none".into(),
-    ];
-    qemu_args.extend(args.qemu_args.iter().map(|x| x.into()));
+    let mut qemu_config = QemuConfig {
+        qemu_path: args.qemu_path,
+        bios_path: args.bios_path,
+        drives: vec![QemuDriveConfig {
+            file: image_file_path.to_str().unwrap().to_string(),
+            media: "disk".to_string(),
+            format: "raw".to_string(),
+        }],
+        ..Default::default()
+    };
+    qemu_config
+        .additional_args
+        .extend(args.qemu_args.iter().cloned());
 
-    // Run qemu.
-    let mut child = Command::new(args.qemu_path)
-        .args(qemu_args)
-        .spawn()
-        .expect("Failed to start qemu");
+    // Run qemu
+    let mut qemu_process = qemu_config.run().expect("Failed to start qemu");
 
     // Wait for qemu to exit or signal.
     let mut qemu_exit_code;
     loop {
-        qemu_exit_code = wait_qemu(&mut child, Duration::from_millis(500));
+        qemu_exit_code = qemu_process.wait(Duration::from_millis(500));
         if qemu_exit_code.is_some() || terminating.load(Ordering::SeqCst) {
             break;
         }
@@ -90,13 +86,13 @@ fn main() {
     // The above loop may have been broken by a signal
     if qemu_exit_code.is_none() {
         // In this case we wait for qemu to exit for one second
-        qemu_exit_code = wait_qemu(&mut child, Duration::from_secs(1));
+        qemu_exit_code = qemu_process.wait(Duration::from_secs(1));
     }
 
     // Qemu may still be running
     if qemu_exit_code.is_none() {
         // In this case we need to kill it
-        child
+        qemu_process
             .kill()
             .or_else(|e| match e.kind() {
                 // Not running anymore
@@ -104,19 +100,9 @@ fn main() {
                 _ => Err(e),
             })
             .expect("Unable to kill qemu process");
-        qemu_exit_code = wait_qemu(&mut child, Duration::from_secs(1));
+        qemu_exit_code = qemu_process.wait(Duration::from_secs(1));
     }
 
     let exit_code = qemu_exit_code.expect("qemu should have exited by now but did not");
     std::process::exit(exit_code);
-}
-
-/// Wait for the process to exit for `duration`.
-///
-/// Returns `true` if the process exited and false if the timeout expired.
-fn wait_qemu(child: &mut Child, duration: Duration) -> Option<i32> {
-    child
-        .wait_timeout(duration)
-        .expect("Failed to wait on child process")
-        .map(|exit_status| exit_status.code().unwrap_or(0))
 }
