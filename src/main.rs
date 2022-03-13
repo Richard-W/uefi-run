@@ -45,7 +45,7 @@ fn main() {
 
         // Create startup.nsh
         image
-            .set_file_contents("startup.nsh", include_bytes!("startup.nsh"))
+            .set_file_contents("startup.nsh", DEFAULT_STARTUP_NSH)
             .expect("Failed to write startup script");
 
         // Create user provided additional files

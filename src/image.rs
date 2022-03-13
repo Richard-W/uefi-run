@@ -4,6 +4,9 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
+/// Default startup script that just runs `run.efi`
+pub const DEFAULT_STARTUP_NSH: &[u8] = include_bytes!("startup.nsh");
+
 /// Handle to a FAT filesystem used as an EFI partition
 pub struct EfiImage {
     fs: fatfs::FileSystem<fs::File>,
