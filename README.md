@@ -38,3 +38,10 @@ After cargo has been installed you can build and install uefi-run:
 ```bash
 cargo install uefi-run
 ```
+
+### Packages provided by third parties
+
+Third-party packages are controlled by their respective maintainers. They are not associated to
+this project. Use at your own risk.
+
+* [AUR PKGBUILD for Arch Linux](https://aur.archlinux.org/packages/uefi-run) contributed by @rubo3
