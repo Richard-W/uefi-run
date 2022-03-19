@@ -7,8 +7,16 @@ license = "MIT"
 repository = "https://github.com/richard-w/uefi-run"
 edition = "2018"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "uefi-run"
+path = "src/main.rs"
+
 [dependencies]
-clap = { version = "3.1", features = ["cargo"] }
+anyhow = "1.0"
+clap = { version = "3.1", features = ["cargo", "derive"] }
 ctrlc = { version = "3.1", features = ["termination"] }
 fatfs = "0.3"
 tempfile = "3.0"
