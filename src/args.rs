@@ -31,6 +31,9 @@ pub struct Args {
     pub efi_exe: String,
     /// Additional arguments for qemu
     pub qemu_args: Vec<String>,
+    /// Skip the 5 second delay and start directly
+    #[clap(long, short = 'd')]
+    pub boot: bool,
 }
 
 impl Args {
