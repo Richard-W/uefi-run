@@ -40,16 +40,15 @@ fn main() {
 
         // Create EFI executable
         if args.boot {
+            // Copy the application to where the firmware expects a bootloader.
             image.copy_host_file(&args.efi_exe, "EFI/Boot/BootX64.efi")
         } else {
-            image.copy_host_file(&args.efi_exe, "run.efi")
+            // Use startup.nsh to start the application from the EFI shell.
+            image
+                .copy_host_file(&args.efi_exe, "run.efi")
+                .and_then(|_| image.set_file_contents("startup.nsh", DEFAULT_STARTUP_NSH))
         }
         .expect("Failed to copy EFI executable");
-
-        // Create startup.nsh
-        image
-            .set_file_contents("startup.nsh", DEFAULT_STARTUP_NSH)
-            .expect("Failed to write startup script");
 
         // Create user provided additional files
         for (outer, inner) in args.parse_add_file_args().map(|x| x.unwrap()) {
