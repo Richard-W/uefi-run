@@ -31,7 +31,9 @@ pub struct Args {
     pub efi_exe: String,
     /// Additional arguments for qemu
     pub qemu_args: Vec<String>,
-    /// Skip the 5 second delay and start directly
+    /// Load the application as a bootloader instead of in an EFI shell
+    ///
+    /// This effectively skips the 5 second startup delay.
     #[clap(long, short = 'd')]
     pub boot: bool,
 }
