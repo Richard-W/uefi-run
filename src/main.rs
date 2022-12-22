@@ -38,10 +38,13 @@ fn main() {
         let mut image =
             EfiImage::new(&image_file_path, args.size * 0x10_0000).expect("Failed to create image");
 
-        // Create run.efi
-        image
-            .copy_host_file(&args.efi_exe, "run.efi")
-            .expect("Failed to copy EFI executable");
+        // Create EFI executable
+        if args.boot {
+            image.copy_host_file(&args.efi_exe, "EFI/Boot/BootX64.efi")
+        } else {
+            image.copy_host_file(&args.efi_exe, "run.efi")
+        }
+        .expect("Failed to copy EFI executable");
 
         // Create startup.nsh
         image
